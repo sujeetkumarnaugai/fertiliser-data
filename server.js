@@ -1,52 +1,74 @@
 const express = require("express");
-const { MongoClient } = require("mongodb");
-const cors = require("cors");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const bodyParser = require("body-parser");
+require("dotenv").config();
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
 
-// ✅ Atlas connection string Render के Environment Variable से आएगा
-const uri = process.env.MONGODB_URI;
-if (!uri) {
-  console.error("❌ MONGODB_URI is missing");
-  process.exit(1);
-}
+// MongoDB connection
+mongoose
+  .connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("✅ Connected to MongoDB Atlas"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-const client = new MongoClient(uri);
-
-async function start() {
-  await client.connect();
-  console.log("✅ Connected to MongoDB Atlas");
-
-  const db = client.db("dealerDB");        // Database name
-  const collection = db.collection("reports"); // Collection name
-
-  // Save data
-  app.post("/save-report", async (req, res) => {
-    try {
-      const result = await collection.insertOne(req.body);
-      res.json({ success: true, id: result.insertedId });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Fetch all data
-  app.get("/get-reports", async (_req, res) => {
-    try {
-      const data = await collection.find({}).toArray();
-      res.json(data);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-}
-
-start().catch(err => {
-  console.error("❌ Startup error:", err);
-  process.exit(1);
+// Schema
+const dealerSchema = new mongoose.Schema({
+  dealerName: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, default: "dealer" }
 });
+
+const Dealer = mongoose.model("Dealer", dealerSchema);
+
+// Signup (create user)
+app.post("/dealer/signup", async (req, res) => {
+  try {
+    const { dealerName, password, role } = req.body;
+
+    const existing = await Dealer.findOne({ dealerName });
+    if (existing) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const dealer = new Dealer({
+      dealerName,
+      password: hashedPassword,
+      role
+    });
+
+    await dealer.save();
+
+    res.status(201).json({ message: "User created successfully", dealer });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Login
+app.post("/dealer/login", async (req, res) => {
+  try {
+    const { dealerName, password } = req.body;
+
+    const dealer = await Dealer.findOne({ dealerName });
+    if (!dealer) return res.status(400).json({ error: "Invalid dealerName or password" });
+
+    const isMatch = await bcrypt.compare(password, dealer.password);
+    if (!isMatch) return res.status(400).json({ error: "Invalid dealerName or password" });
+
+    res.json({ message: "Login successful", dealer });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test route
+app.get("/", (req, res) => {
+  res.send("🚀 Backend is working!");
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
