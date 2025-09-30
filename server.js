@@ -30,7 +30,7 @@ app.post("/dealer/signup", async (req, res) => {
     // check duplicate user
     const existing = await Dealer.findOne({ dealerName });
     if (existing) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ success: false, message: "User already exists" });
     }
 
     // hash password
@@ -39,10 +39,10 @@ app.post("/dealer/signup", async (req, res) => {
     const newDealer = new Dealer({ dealerName, password: hashedPassword, role });
     await newDealer.save();
 
-    res.json({ message: "User created successfully", user: { dealerName, role } });
+    res.json({ success: true, message: "User created successfully", user: { dealerName, role } });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -52,15 +52,15 @@ app.post("/dealer/login", async (req, res) => {
     const { dealerName, password } = req.body;
     const user = await Dealer.findOne({ dealerName });
 
-    if (!user) return res.status(400).json({ message: "User not found" });
+    if (!user) return res.status(400).json({ success: false, message: "User not found" });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+    if (!isMatch) return res.status(400).json({ success: false, message: "Invalid credentials" });
 
-    res.json({ message: "Login successful", role: user.role });
+    res.json({ success: true, message: "Login successful", role: user.role });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
