@@ -16,6 +16,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 // Dealer/Admin Schema
 const dealerSchema = new mongoose.Schema({
   dealerName: { type: String, required: true, unique: true },
+  mobile: { type: String, required: true },   // नया field
   password: { type: String, required: true },
   role: { type: String, enum: ["dealer", "admin"], default: "dealer" }
 });
@@ -25,7 +26,7 @@ const Dealer = mongoose.model("Dealer", dealerSchema);
 // Signup API
 app.post("/dealer/signup", async (req, res) => {
   try {
-    const { dealerName, password, role } = req.body;
+    const { dealerName, mobile, password, role } = req.body;   // ✅ सिर्फ एक बार destructure
 
     // check duplicate user
     const existing = await Dealer.findOne({ dealerName });
@@ -36,7 +37,7 @@ app.post("/dealer/signup", async (req, res) => {
     // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newDealer = new Dealer({ dealerName, password: hashedPassword, role });
+    const newDealer = new Dealer({ dealerName, mobile, password: hashedPassword, role });
     await newDealer.save();
 
     res.json({ success: true, message: "User created successfully", user: { dealerName, role } });
@@ -72,3 +73,4 @@ app.get("/", (req, res) => {
 // Render gives PORT dynamically
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
